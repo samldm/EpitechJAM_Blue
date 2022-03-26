@@ -6,15 +6,16 @@ class Cloud
         this.canvas = canvas;
         this.ctx = ctx;
         this.image = new Image();
+        this.random = Math.round(Math.random() * 100) / 100;
+        
+        if (this.random < 0.15) this.random = 0.15;
     }
     loadImage() {
         this.image.src = "./sprites/little_cloud.png";
-        this.image.width = 60;
-        this.image.height = 35;
+        return (this);
     }
     draw() {
-        this.ctx.drawImage(this.image, this.x, this.y);
-        console.log("draw");
+        this.ctx.drawImage(this.image, this.x, this.y, this.image.width * this.random, this.image.height * this.random);
     }
 }
 class Game
@@ -94,7 +95,7 @@ class Game
     }
 
     spawnCloud() {
-        this.clouds.push(new Cloud(0, 0, this.canvas, this.ctx));
+        this.clouds.push(new Cloud(0, 0, this.canvas, this.ctx).loadImage());
     }
 
     drawCloud() {
