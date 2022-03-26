@@ -1,6 +1,7 @@
 class Cloud
 {
-    constructor(x, y, canvas, ctx) {
+    constructor(id, x, y, canvas, ctx) {
+        this.id = id;
         this.x = x;
         this.y = y;
         this.canvas = canvas;
@@ -9,6 +10,7 @@ class Cloud
         this.random = Math.round(Math.random() * 100) / 100;
         
         if (this.random < 0.15) this.random = 0.15;
+        console.log(this.id);
     }
     loadImage() {
         this.image.src = "./sprites/little_cloud.png";
@@ -44,6 +46,7 @@ class Game
         this.startDate = 0;
         this.gameLoopTimeout = null;
         this.clouds = [];
+        this._cloudsid = 0;
     }
 
     init() {
@@ -95,7 +98,7 @@ class Game
     }
 
     spawnCloud() {
-        this.clouds.push(new Cloud(0, 0, this.canvas, this.ctx).loadImage());
+        this.clouds.push(new Cloud(++this._cloudsid, 0, 0, this.canvas, this.ctx).loadImage());
     }
 
     drawCloud() {
