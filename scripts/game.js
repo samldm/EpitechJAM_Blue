@@ -21,6 +21,8 @@ class Game
         this.options = {
             fps: '60'
         }
+        this.startDate = 0;
+        this.gameLoopTimeout = null;
     }
 
     init() {
@@ -36,11 +38,15 @@ class Game
     togglePause() {
         if (!this.loop) return;
         this.pause.isPause = !this.pause.isPause;
-        if (this.pause.isPause)
+        if (this.pause.isPause) {
+            clearTimeout(this.gameLoopTimeout);
             this.pause.background.style.display = "flex";
-        else
+            this.startDate = Date.now() - this.startDate;
+        } else {
             this.pause.background.style.display = "none";
             this.gameLoop();
+            this.startDate = Date.now() - this.startDate;
+        }
     }
 
     keyboardEvent(evt) {
@@ -51,16 +57,22 @@ class Game
         if(evt) evt.preventDefault();
         this.menu.background.style.display = "none";
         this.loop = true;
+        this.startDate = Date.now();
         this.gameLoop();
     }
 
     gameLoop() {
-        setTimeout(() => {
+        if (!(this.loop && !this.pause.isPause)) return;
+        this.gameLoopTimeout = setTimeout(() => {
             this.drawBackground();
-            console.log("loop");
+            console.log(Math.floor((Date.now() - this.startDate) / 1000));
             
-            if (this.loop && !this.pause.isPause) window.requestAnimationFrame(this.gameLoop.bind(this));
+            window.requestAnimationFrame(this.gameLoop.bind(this));
         }, 1000 / this.options.fps);
+    }
+
+    spawnCloud() {
+
     }
 
     drawBackground() {
