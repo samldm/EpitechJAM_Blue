@@ -19,15 +19,15 @@ class Cloud
         this.direction = null;
         this.timer = Date.now();
         this.image = new Image();
-        this.randomSize = Math.round(Math.random() * 100) / 100;
-        if (this.randomSize < 0.3) this.randomSize = 0.3;
+        this.randomSize = (Math.round(Math.random() * 100) / 100) - game.difficultyModifier;
+        if (this.randomSize < 0.25) this.randomSize = 0.25;
         this.image.width = 600 * this.randomSize;
         this.image.height = 350 * this.randomSize;
     }
 
     init() {
         this.loadImage();
-        this.direction = Math.random() > 0.5 ? 1 : -1;
+        this.direction = Math.random() >= 0.5 ? 1 : -1;
         if (this.direction == -1)
             this.x = this.game.canvas.width + Math.floor(Math.random() * this.image.width);
         else
@@ -67,21 +67,26 @@ class Game
             isPause: false,
             background: document.getElementById(options.pause_bg)
         };
+        this.end = {
+            background: document.getElementById(options.end_bg),
+            score: document.getElementById(options.score_span)
+        };
         this.buttons = {
             start: document.getElementById(options.btn_start),
-            resume: document.getElementById(options.btn_resume)
+            resume: document.getElementById(options.btn_resume),
+            restart: document.getElementsByClassName(options.btn_restart)
         };
         this.ctx = this.canvas.getContext('2d');
+        this.font = null;
+        this.isFontLoaded = false;
         this.loop = false;
-        this.colors = [
-            "#acf5fb",
-            "#75d5e3"
-        ];
-        this.options = {
-            fps: '120'
-        }
-        this.startDate = 0;
         this.gameLoopTimeout = null;
+        this.colors = [ "#acf5fb", "#75d5e3", "#cdf9ff", "#054c52" ];
+        this.options = { fps: '120' };
+        this.startDate = 0;
+        this.lastSec = 0;
+        this.difficultyModifier = 0;
+        this.score = 0;
         this.clouds = [];
         this._cloudsid = 0;
     }
@@ -95,6 +100,9 @@ class Game
         this.canvas.addEventListener("click", this.clickEvent.bind(this));
         this.buttons.start.addEventListener("click", this.startGame.bind(this));
         this.buttons.resume.addEventListener("click", this.togglePause.bind(this));
+        for (let i = 0; this.buttons.restart[i]; i++) {
+            this.buttons.restart[i].addEventListener("click", this.startGame.bind(this));
+        }
     }
 
     togglePause() {
@@ -135,17 +143,32 @@ class Game
      * @param {Cloud} cloud cloud
      */
     cloudClick(cloud) {
-        console.log(`Clicked on cloud #${cloud.id}`);
+        this.score += 1;
         this.killCloud(cloud);
+        this.spawnCloud();
     }
 
     startGame(evt) {
         if(evt) evt.preventDefault();
+        if (this.gameLoopTimeout) clearTimeout(this.gameLoopTimeout);
+        this.end.background.style.display = "none";
         this.menu.background.style.display = "none";
+        this.pause.background.style.display = "none";
+        this.score = 0;
+        this.clouds = [];
+        this.difficultyModifier = 0;
+        this.lastSec = 0;
         this.loop = true;
+        this.pause.isPause = false;
         this.startDate = Date.now();
         this.gameLoop();
-        this.spawnCloud(5);
+        this.spawnCloud(2);
+    }
+
+    endGame() {
+        this.loop = false;
+        this.end.background.style.display = "flex";
+        this.end.score.innerText = this.score; 
     }
 
     gameLoop() {
@@ -153,6 +176,19 @@ class Game
         this.gameLoopTimeout = setTimeout(() => {
             this.drawBackground();
             this.drawCloud();
+            this.drawTexts();
+
+            if (this.timeInSecs >= 60) {
+                this.endGame();
+                return;
+            }
+
+            if (this.lastSec != this.timeInSecs) {
+                this.lastSec = this.timeInSecs;
+
+                if (this.timeInSecs % 2 == 0) this.spawnCloud();
+                this.difficultyModifier += 0.01;
+            }
 
             window.requestAnimationFrame(this.gameLoop.bind(this));
         }, 1000 / this.options.fps);
@@ -171,8 +207,27 @@ class Game
         this.clouds.splice(this.clouds.indexOf(cloud), 1);
     }
 
+    drawTexts() {
+        let _drawTxt = (s, x, y) => {
+            this.ctx.font = "30px sans-serif";
+            this.ctx.textBaseline = "top";
+            this.ctx.fillStyle = this.colors[2];
+            this.ctx.strokeStyle = this.colors[3];
+
+            this.ctx.strokeText(s, x, y);
+            this.ctx.fillText(s, x, y);
+        };
+        _drawTxt(`Time: ${60 - this.timeInSecs}`, 5, 5);
+        _drawTxt(`Score: ${this.score}`, 5, 35);
+    }
+
     drawCloud() {
-        this.clouds.forEach((cloud)=>{
+        this.clouds.forEach((cloud) => {
+            if ((cloud.direction == 1) && cloud.x >= this.canvas.width
+            || ((cloud.direction == -1) && cloud.x <= (cloud.image.width * (-1)))) {
+                this.killCloud(cloud);
+                return;
+            }
             cloud.draw(this.ctx);
         });
     }
@@ -184,12 +239,12 @@ class Game
         let gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
         gradient.addColorStop(0, this.colors[0]);
         gradient.addColorStop(1, this.colors[1]);
-        this.ctx.fillStyle = gradient;  
+        this.ctx.fillStyle = gradient;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
     get timeInSecs() {
-        return (Math.floor((Date.now() - this.startDate) / 1000));
+        return (Math.floor(this.time / 1000));
     }
 
     get time() {
