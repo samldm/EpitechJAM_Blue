@@ -144,7 +144,12 @@ class Game
      * @param {Cloud} cloud cloud
      */
     cloudClick(cloud) {
-        this.score += 1;
+        if (cloud.randomSize >= 0.6)
+            this.score += 1;
+        else if (cloud.randomSize >= 0.4)
+            this.score += 2;
+        else
+            this.score += 3;
         this.killCloud(cloud);
         this.spawnCloud();
     }
@@ -188,7 +193,10 @@ class Game
             if (this.lastSec != this.timeInSecs) {
                 this.lastSec = this.timeInSecs;
 
-                if (this.timeInSecs % 2 == 0) this.spawnCloud();
+                if (this.timeInSecs/4 == Math.round(this.timeInSecs/4)) {
+                    this.spawnCloud();
+                    console.log("cloud spawned");   
+                }
                 this.difficultyModifier += 0.01;
             }
 
