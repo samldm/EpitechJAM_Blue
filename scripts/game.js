@@ -1,27 +1,63 @@
+function isInRect(x, y, x1, y1, x2, y2) {
+    if (x >= x1 && x <= x2)
+        if (y >= y1 && y <= y2)
+            return (true);
+    return (false);
+}
+
 class Cloud
 {
-    constructor(id, x, y, canvas, ctx) {
-        this.id = id;
-        this.x = x;
-        this.y = y;
-        this.canvas = canvas;
-        this.ctx = ctx;
+    /**
+     * Cloud constructor
+     * @param {Game} game game class
+     */
+    constructor(game) {
+        this.game = game;
+        this.id = ++game._cloudsid;
+        this.x = null;
+        this.y = null;
+        this.direction = null;
+        this.timer = Date.now();
         this.image = new Image();
-        this.random = Math.round(Math.random() * 100) / 100;
-        
-        if (this.random < 0.15) this.random = 0.15;
-        console.log(this.id);
+        this.randomSize = Math.round(Math.random() * 100) / 100;
+        if (this.randomSize < 0.3) this.randomSize = 0.3;
+        this.image.width = 600 * this.randomSize;
+        this.image.height = 350 * this.randomSize;
     }
-    loadImage() {
-        this.image.src = "./sprites/little_cloud.png";
+
+    init() {
+        this.loadImage();
+        this.direction = Math.random() > 0.5 ? 1 : -1;
+        if (this.direction == -1)
+            this.x = this.game.canvas.width;
+        else
+            this.x = (this.image.width * -1);
+        this.y = Math.floor(Math.random() * (this.game.canvas.height - this.image.height));
         return (this);
     }
-    draw() {
-        this.ctx.drawImage(this.image, this.x, this.y, this.image.width * this.random, this.image.height * this.random);
+
+    loadImage() {
+        this.image.src = "./sprites/little_cloud.png";
+    }
+
+    draw(ctx) {
+        this.move();
+        ctx.drawImage(this.image, this.x, this.y, this.image.width, this.image.height);
+    }
+
+    move() {
+        if ((Date.now() - this.timer) >= 20) {
+            this.x += Math.floor((5 * this.direction) / this.randomSize);
+            this.timer = Date.now();
+        }
     }
 }
 class Game
 {
+    /**
+     * Game constructor
+     * @param {Object} options options
+     */
     constructor(options) {
         this.canvas = document.getElementById(options.canvas);
         this.menu = {
@@ -41,7 +77,7 @@ class Game
             "#8ae5ff"
         ];
         this.options = {
-            fps: '60'
+            fps: '120'
         }
         this.startDate = 0;
         this.gameLoopTimeout = null;
@@ -55,9 +91,9 @@ class Game
         window.addEventListener("resize", () => {
             if (!this.loop || this.pause) this.drawBackground();
         });
+        this.canvas.addEventListener("click", this.clickEvent.bind(this));
         this.buttons.start.addEventListener("click", this.startGame.bind(this));
         this.buttons.resume.addEventListener("click", this.togglePause.bind(this));
-        this.spawnCloud();
     }
 
     togglePause() {
@@ -78,32 +114,56 @@ class Game
         if(evt.key === "Escape") this.togglePause();
     }
 
+    clickEvent(evt) {
+        evt.preventDefault();
+        let mouse_pos = {
+            x: evt.clientX,
+            y: evt.clientY
+        };
+        for (let i in this.clouds) {
+            let cloud = this.clouds[i];
+            if (isInRect(mouse_pos.x, mouse_pos.y, cloud.x, cloud.y, cloud.x + cloud.image.width, cloud.y + cloud.image.height)) {
+                this.cloudClick(cloud);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Cloud click event
+     * @param {Cloud} cloud cloud
+     */
+    cloudClick(cloud) {
+        console.log(`Clicked on cloud #${cloud.id}`);
+    }
+
     startGame(evt) {
         if(evt) evt.preventDefault();
         this.menu.background.style.display = "none";
         this.loop = true;
         this.startDate = Date.now();
         this.gameLoop();
+        this.spawnCloud(0, 0, 1);
+        this.spawnCloud(1000, 650, -1);
     }
 
     gameLoop() {
         if (!(this.loop && !this.pause.isPause)) return;
         this.gameLoopTimeout = setTimeout(() => {
             this.drawBackground();
-            console.log(Math.floor((Date.now() - this.startDate) / 1000));
-            
             this.drawCloud();
+
             window.requestAnimationFrame(this.gameLoop.bind(this));
         }, 1000 / this.options.fps);
     }
 
-    spawnCloud() {
-        this.clouds.push(new Cloud(++this._cloudsid, 0, 0, this.canvas, this.ctx).loadImage());
+    spawnCloud(x, y) {
+        this.clouds.push(new Cloud(this).init());
     }
 
     drawCloud() {
         this.clouds.forEach((cloud)=>{
-            cloud.draw();
+            cloud.draw(this.ctx);
         });
     }
 
@@ -112,5 +172,13 @@ class Game
         this.ctx.canvas.height = window.innerHeight;
         this.ctx.fillStyle = this.colors[0];
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    get timeInSecs() {
+        return (Math.floor((Date.now() - this.startDate) / 1000));
+    }
+
+    get time() {
+        return (Date.now() - this.startDate);
     }
 }
