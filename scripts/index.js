@@ -6,7 +6,8 @@ const game = new Game({
     menu_bg: "menuBg",
     pause_bg: "pauseBg",
     end_bg: "endBg",
-    score_span: "scoreSpan"
+    score_span: "scoreSpan",
+    zorotl: "zorotl"
 });
 
 game.init();

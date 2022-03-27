@@ -61,7 +61,8 @@ class Game
     constructor(options) {
         this.canvas = document.getElementById(options.canvas);
         this.menu = {
-            background: document.getElementById(options.menu_bg)
+            background: document.getElementById(options.menu_bg),
+            zorotl: document.getElementById(options.zorotl)
         };
         this.pause = {
             isPause: false,
@@ -154,6 +155,7 @@ class Game
         this.end.background.style.display = "none";
         this.menu.background.style.display = "none";
         this.pause.background.style.display = "none";
+        this.menu.zorotl.style.display = "none";
         this.score = 0;
         this.clouds = [];
         this.difficultyModifier = 0;
