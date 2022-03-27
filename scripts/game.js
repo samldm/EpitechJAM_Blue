@@ -29,9 +29,9 @@ class Cloud
         this.loadImage();
         this.direction = Math.random() > 0.5 ? 1 : -1;
         if (this.direction == -1)
-            this.x = this.game.canvas.width;
+            this.x = this.game.canvas.width + Math.floor(Math.random() * this.image.width);
         else
-            this.x = (this.image.width * -1);
+            this.x = (this.image.width * -1) - Math.floor(Math.random() * this.image.width);
         this.y = Math.floor(Math.random() * (this.game.canvas.height - this.image.height));
         return (this);
     }
@@ -74,7 +74,8 @@ class Game
         this.ctx = this.canvas.getContext('2d');
         this.loop = false;
         this.colors = [
-            "#8ae5ff"
+            "#acf5fb",
+            "#75d5e3"
         ];
         this.options = {
             fps: '120'
@@ -135,6 +136,7 @@ class Game
      */
     cloudClick(cloud) {
         console.log(`Clicked on cloud #${cloud.id}`);
+        this.killCloud(cloud);
     }
 
     startGame(evt) {
@@ -143,8 +145,7 @@ class Game
         this.loop = true;
         this.startDate = Date.now();
         this.gameLoop();
-        this.spawnCloud(0, 0, 1);
-        this.spawnCloud(1000, 650, -1);
+        this.spawnCloud(5);
     }
 
     gameLoop() {
@@ -157,8 +158,17 @@ class Game
         }, 1000 / this.options.fps);
     }
 
-    spawnCloud(x, y) {
-        this.clouds.push(new Cloud(this).init());
+    spawnCloud(count = 1) {
+        for(let i = 0; i < count; i++)
+            this.clouds.push(new Cloud(this).init());
+    }
+
+    /**
+     * Kill a cloud
+     * @param {Cloud} cloud cloud
+     */
+    killCloud(cloud) {
+        this.clouds.splice(this.clouds.indexOf(cloud), 1);
     }
 
     drawCloud() {
@@ -170,7 +180,11 @@ class Game
     drawBackground() {
         this.ctx.canvas.width = window.innerWidth;
         this.ctx.canvas.height = window.innerHeight;
-        this.ctx.fillStyle = this.colors[0];
+
+        let gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+        gradient.addColorStop(0, this.colors[0]);
+        gradient.addColorStop(1, this.colors[1]);
+        this.ctx.fillStyle = gradient;  
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
