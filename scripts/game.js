@@ -1,27 +1,63 @@
+function isInRect(x, y, x1, y1, x2, y2) {
+    if (x >= x1 && x <= x2)
+        if (y >= y1 && y <= y2)
+            return (true);
+    return (false);
+}
+
 class Cloud
 {
-    constructor(id, x, y, canvas, ctx) {
-        this.id = id;
-        this.x = x;
-        this.y = y;
-        this.canvas = canvas;
-        this.ctx = ctx;
+    /**
+     * Cloud constructor
+     * @param {Game} game game class
+     */
+    constructor(game) {
+        this.game = game;
+        this.id = ++game._cloudsid;
+        this.x = null;
+        this.y = null;
+        this.direction = null;
+        this.timer = Date.now();
         this.image = new Image();
-        this.random = Math.round(Math.random() * 100) / 100;
-        
-        if (this.random < 0.15) this.random = 0.15;
-        console.log(this.id);
+        this.randomSize = (Math.round(Math.random() * 100) / 100) - game.difficultyModifier;
+        if (this.randomSize < 0.25) this.randomSize = 0.25;
+        this.image.width = 600 * this.randomSize;
+        this.image.height = 350 * this.randomSize;
     }
-    loadImage() {
-        this.image.src = "./sprites/little_cloud.png";
+
+    init() {
+        this.loadImage();
+        this.direction = Math.random() >= 0.5 ? 1 : -1;
+        if (this.direction == -1)
+            this.x = this.game.canvas.width + Math.floor(Math.random() * this.image.width);
+        else
+            this.x = (this.image.width * -1) - Math.floor(Math.random() * this.image.width);
+        this.y = Math.floor(Math.random() * (this.game.canvas.height - this.image.height));
         return (this);
     }
-    draw() {
-        this.ctx.drawImage(this.image, this.x, this.y, this.image.width * this.random, this.image.height * this.random);
+
+    loadImage() {
+        this.image.src = "./sprites/little_cloud.png";
+    }
+
+    draw(ctx) {
+        this.move();
+        ctx.drawImage(this.image, this.x, this.y, this.image.width, this.image.height);
+    }
+
+    move() {
+        if ((Date.now() - this.timer) >= 20) {
+            this.x += Math.floor((5 * this.direction) / this.randomSize);
+            this.timer = Date.now();
+        }
     }
 }
 class Game
 {
+    /**
+     * Game constructor
+     * @param {Object} options options
+     */
     constructor(options) {
         this.canvas = document.getElementById(options.canvas);
         this.menu = {
@@ -31,20 +67,26 @@ class Game
             isPause: false,
             background: document.getElementById(options.pause_bg)
         };
+        this.end = {
+            background: document.getElementById(options.end_bg),
+            score: document.getElementById(options.score_span)
+        };
         this.buttons = {
             start: document.getElementById(options.btn_start),
-            resume: document.getElementById(options.btn_resume)
+            resume: document.getElementById(options.btn_resume),
+            restart: document.getElementsByClassName(options.btn_restart)
         };
         this.ctx = this.canvas.getContext('2d');
+        this.font = null;
+        this.isFontLoaded = false;
         this.loop = false;
-        this.colors = [
-            "#8ae5ff"
-        ];
-        this.options = {
-            fps: '60'
-        }
-        this.startDate = 0;
         this.gameLoopTimeout = null;
+        this.colors = [ "#acf5fb", "#75d5e3", "#cdf9ff", "#054c52" ];
+        this.options = { fps: '120' };
+        this.startDate = 0;
+        this.lastSec = 0;
+        this.difficultyModifier = 0;
+        this.score = 0;
         this.clouds = [];
         this._cloudsid = 0;
     }
@@ -55,9 +97,12 @@ class Game
         window.addEventListener("resize", () => {
             if (!this.loop || this.pause) this.drawBackground();
         });
+        this.canvas.addEventListener("click", this.clickEvent.bind(this));
         this.buttons.start.addEventListener("click", this.startGame.bind(this));
         this.buttons.resume.addEventListener("click", this.togglePause.bind(this));
-        this.spawnCloud();
+        for (let i = 0; this.buttons.restart[i]; i++) {
+            this.buttons.restart[i].addEventListener("click", this.startGame.bind(this));
+        }
     }
 
     togglePause() {
@@ -78,39 +123,131 @@ class Game
         if(evt.key === "Escape") this.togglePause();
     }
 
+    clickEvent(evt) {
+        evt.preventDefault();
+        let mouse_pos = {
+            x: evt.clientX,
+            y: evt.clientY
+        };
+        for (let i in this.clouds) {
+            let cloud = this.clouds[i];
+            if (isInRect(mouse_pos.x, mouse_pos.y, cloud.x, cloud.y, cloud.x + cloud.image.width, cloud.y + cloud.image.height)) {
+                this.cloudClick(cloud);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Cloud click event
+     * @param {Cloud} cloud cloud
+     */
+    cloudClick(cloud) {
+        this.score += 1;
+        this.killCloud(cloud);
+        this.spawnCloud();
+    }
+
     startGame(evt) {
         if(evt) evt.preventDefault();
+        if (this.gameLoopTimeout) clearTimeout(this.gameLoopTimeout);
+        this.end.background.style.display = "none";
         this.menu.background.style.display = "none";
+        this.pause.background.style.display = "none";
+        this.score = 0;
+        this.clouds = [];
+        this.difficultyModifier = 0;
+        this.lastSec = 0;
         this.loop = true;
+        this.pause.isPause = false;
         this.startDate = Date.now();
         this.gameLoop();
+        this.spawnCloud(2);
+    }
+
+    endGame() {
+        this.loop = false;
+        this.end.background.style.display = "flex";
+        this.end.score.innerText = this.score; 
     }
 
     gameLoop() {
         if (!(this.loop && !this.pause.isPause)) return;
         this.gameLoopTimeout = setTimeout(() => {
             this.drawBackground();
-            console.log(Math.floor((Date.now() - this.startDate) / 1000));
-            
             this.drawCloud();
+            this.drawTexts();
+
+            if (this.timeInSecs >= 60) {
+                this.endGame();
+                return;
+            }
+
+            if (this.lastSec != this.timeInSecs) {
+                this.lastSec = this.timeInSecs;
+
+                if (this.timeInSecs % 2 == 0) this.spawnCloud();
+                this.difficultyModifier += 0.01;
+            }
+
             window.requestAnimationFrame(this.gameLoop.bind(this));
         }, 1000 / this.options.fps);
     }
 
-    spawnCloud() {
-        this.clouds.push(new Cloud(++this._cloudsid, 0, 0, this.canvas, this.ctx).loadImage());
+    spawnCloud(count = 1) {
+        for(let i = 0; i < count; i++)
+            this.clouds.push(new Cloud(this).init());
+    }
+
+    /**
+     * Kill a cloud
+     * @param {Cloud} cloud cloud
+     */
+    killCloud(cloud) {
+        this.clouds.splice(this.clouds.indexOf(cloud), 1);
+    }
+
+    drawTexts() {
+        let _drawTxt = (s, x, y) => {
+            this.ctx.font = "30px sans-serif";
+            this.ctx.textBaseline = "top";
+            this.ctx.fillStyle = this.colors[2];
+            this.ctx.strokeStyle = this.colors[3];
+
+            this.ctx.strokeText(s, x, y);
+            this.ctx.fillText(s, x, y);
+        };
+        _drawTxt(`Time: ${60 - this.timeInSecs}`, 5, 5);
+        _drawTxt(`Score: ${this.score}`, 5, 35);
     }
 
     drawCloud() {
-        this.clouds.forEach((cloud)=>{
-            cloud.draw();
+        this.clouds.forEach((cloud) => {
+            if ((cloud.direction == 1) && cloud.x >= this.canvas.width
+            || ((cloud.direction == -1) && cloud.x <= (cloud.image.width * (-1)))) {
+                this.killCloud(cloud);
+                return;
+            }
+            cloud.draw(this.ctx);
         });
     }
 
     drawBackground() {
         this.ctx.canvas.width = window.innerWidth;
         this.ctx.canvas.height = window.innerHeight;
-        this.ctx.fillStyle = this.colors[0];
+
+        let gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+        gradient.addColorStop(0, this.colors[0]);
+        gradient.addColorStop(1, this.colors[1]);
+        this.ctx.fillStyle = gradient;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    get timeInSecs() {
+        return (Math.floor(this.time / 1000));
+    }
+
+    get time() {
+        return (Date.now() - this.startDate);
     }
 }
